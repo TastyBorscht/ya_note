@@ -60,7 +60,7 @@ class TestRoutes(TestCase):
                 )
 
     def test_redirect_note_update(self):
-        '''Тест редиректа после редактирования заметки.'''
+        """Тест редиректа после редактирования заметки."""
         response = self.author_client.post(
             reverse('notes:edit', args=(self.note.slug,)), {
                 'title': 'Test_edit_title',
@@ -69,9 +69,8 @@ class TestRoutes(TestCase):
         )
         self.assertRedirects(response, reverse('notes:success'))
 
-
     def test_redirect_note_create(self):
-        '''Тест редиректа после создания заметки.'''
+        """Тест редиректа после создания заметки."""
         response = self.author_client.post(
             reverse('notes:add'), {
                 'title': 'Test_new_title',
@@ -80,17 +79,9 @@ class TestRoutes(TestCase):
         )
         self.assertRedirects(response, reverse('notes:success'))
 
-
-    def test
-    # def test_availability_for_comment_edit_and_delete(self):
-    #     users_statuses = (
-    #         (self.author, HTTPStatus.OK),
-    #         (self.reader, HTTPStatus.NOT_FOUND),
-    #     )
-    #     for user, status in users_statuses:
-    #         self.client.force_login(user)
-    #         for name in ('news:edit', 'news:delete'):
-    #             with self.subTest(user=user, name=name):
-    #                 url = reverse(name, args=(self.comment.id,))
-    #                 response = self.client.get(url)
-    #                 self.assertEqual(response.status_code, status)
+    def test_redirect_note_create(self):
+        """Тест редиректа после удаления заметки."""
+        response = self.author_client.delete(
+            reverse('notes:delete', args=(self.note.slug,))
+        )
+        self.assertRedirects(response, reverse('notes:success'))
