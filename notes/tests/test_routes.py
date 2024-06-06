@@ -85,3 +85,4 @@ class TestRoutes(TestCase):
             reverse('notes:delete', args=(self.note.slug,))
         )
         self.assertRedirects(response, reverse('notes:success'))
+
