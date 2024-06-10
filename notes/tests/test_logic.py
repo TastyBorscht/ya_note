@@ -28,29 +28,27 @@ class TestListPage(TestCase):
             'slug': 'test_slug',
             'title': f'{cls.TEST_TITLE}'
         }
-        cls.add_url = reverse('notes:add')
 
     def test_slug_from_title(self):
         """Проверка генерации slug из title."""
-        self.client.force_login(self.author)
         Note.objects.create(
             title=self.TEST_TITLE,
             text='Просто текст',
             author=self.author
         )
-        response = self.client.get(self.add_url)
+        response = self.auth_author_client.get(reverse('notes:list'))
         self.assertEqual(response.context['object_list'][0].slug,
                          slugify(self.TEST_TITLE))
 
     def test_anonymous_user_cant_create_note(self):
         """Анонимный пользователь не может создавать заметки."""
-        self.client.post(self.add_url, data=self.form_data)
+        self.client.post(reverse('notes:add'), data=self.form_data)
         self.assertEqual(Note.objects.count(), 0)
 
     def test_user_can_create_note(self):
         """Авторизованный пользователь может создавать заметки."""
         response = self.auth_author_client.post(
-            self.add_url, data=self.form_data
+            reverse('notes:add'), data=self.form_data
         )
         self.assertRedirects(response, '/done/')
         self.assertEqual(Note.objects.count(), 1)
@@ -59,3 +57,20 @@ class TestListPage(TestCase):
         self.assertEqual(note.slug, self.form_data['slug'])
         self.assertEqual(note.title, self.form_data['title'])
         self.assertEqual(note.author, self.author)
+
+    def test_author_can_edit_notes(self):
+        """Автор может редактировать заметки."""
+        self.auth_author_client.post(
+            reverse('notes:add'), data=self.form_data
+        )
+        self.auth_author_client.post(
+            reverse('notes:edit', args=(self.form_data['slug'],)),
+            data={'text': 'new_text'}
+        )
+        self.Note.refresh_from_db()
+        note = Note.objects.get()
+        self.assertEqual(note.text, 'new_text')
+
+
+
+
