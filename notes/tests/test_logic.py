@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from http import HTTPStatus
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
@@ -58,19 +59,60 @@ class TestListPage(TestCase):
         self.assertEqual(note.title, self.form_data['title'])
         self.assertEqual(note.author, self.author)
 
+
+class TestNoteEditDelete(TestCase):
+    NOTE_TEXT = 'Текст заметки'
+    NEW_NOTE_TEXT = 'Обновлённая заметка'
+    NOTE_SLUG = 'test_slug'
+    NOTE_TITLE = 'test_title'
+
+    @classmethod
+    def setUpTestData(cls):
+        cls.author = User.objects.create(username='Автор заметки')
+        cls.author_client = Client()
+        cls.author_client.force_login(cls.author)
+        cls.reader = User.objects.create(username='Читатель')
+        cls.reader_client = Client()
+        cls.reader_client.force_login(cls.reader)
+        cls.note = Note.objects.create(
+            text=cls.NOTE_TEXT,
+            author=cls.author,
+            slug=cls.NOTE_SLUG,
+            title=cls.NOTE_TITLE
+        )
+        cls.edit_url = reverse('notes:edit', args=(cls.note.slug,))
+        cls.delete_url = reverse('notes:delete', args=(cls.note.slug,))
+        cls.success_url = reverse('notes:success')
+        cls.form_data = {
+            'text': cls.NEW_NOTE_TEXT,
+            'title': cls.NOTE_TITLE
+        }
+
     def test_author_can_edit_notes(self):
         """Автор может редактировать заметки."""
-        self.auth_author_client.post(
-            reverse('notes:add'), data=self.form_data
+        self.author_client.post(
+            self.edit_url,
+            data=self.form_data
         )
-        self.auth_author_client.post(
-            reverse('notes:edit', args=(self.form_data['slug'],)),
-            data={'text': 'new_text'}
-        )
-        self.Note.refresh_from_db()
-        note = Note.objects.get()
-        self.assertEqual(note.text, 'new_text')
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.text, self.NEW_NOTE_TEXT)
 
+    def test_user_cant_edit_note_of_another_user(self):
+        """Не автор не может редактировать заметки."""
+        response = self.reader_client.post(self.edit_url, data=self.form_data)
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.note.refresh_from_db()
+        self.assertEqual(self.note.text, self.NOTE_TEXT)
 
+    def test_author_can_delete_note(self):
+        """Автор может удалить свою заметку."""
+        response = self.author_client.delete(self.delete_url)
+        self.assertRedirects(response, self.success_url)
+        self.assertEqual(Note.objects.count(), 0)
 
-
+    def test_user_cant_delete_note_of_another_user(self):
+        """Пользователь не может удалить чужую заметку."""
+        response = self.reader_client.delete(self.delete_url)
+        self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.note.refresh_from_db()
+        self.assertEqual(Note.objects.count(), 1)
