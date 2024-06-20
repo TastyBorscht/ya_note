@@ -11,7 +11,7 @@ class TestAdd(TestCase):
         self.user = User.objects.create(username='Karabas-barabas')
 
     def authorized_user_get_form(self):
-        """Авторизированный пользователь получает форму создания заметки."""
+        """Авторизованный пользователь получает форму создания заметки."""
         self.assertIn(
             'form',
             self.client.force_login(self.user).get(
