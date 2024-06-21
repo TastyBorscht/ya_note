@@ -1,5 +1,4 @@
 import pytest
-
 from django.urls import reverse
 
 from notes.forms import NoteForm
@@ -27,7 +26,6 @@ def test_notes_list_for_different_users(
     )
 )
 def test_pages_contains_form(author_client, name, args):
-    url = reverse(name, args=args)
-    response = author_client.get(url)
+    response = author_client.get(reverse(name, args=args))
     assert 'form' in response.context
     assert isinstance(response.context['form'], NoteForm)

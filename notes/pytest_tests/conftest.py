@@ -1,5 +1,4 @@
 import pytest
-
 from django.test.client import Client
 
 from notes.models import Note
@@ -43,3 +42,12 @@ def note(author):
 @pytest.fixture
 def slug_for_args(note):
     return (note.slug,)
+
+
+@pytest.fixture
+def form_data():
+    return {
+        'title': 'Новый заголовок',
+        'text': 'Новый текст',
+        'slug': 'new-slug'
+    }

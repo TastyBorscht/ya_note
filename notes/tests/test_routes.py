@@ -13,18 +13,23 @@ class TestRoutes(TestCase):
 
     @classmethod
     def setUpTestData(cls):
-        cls.author = User.objects.create(username='Лев Толстой', password='123test')
-        cls.reader = User.objects.create(username='Читатель простой', password='123test')
+        cls.author = User.objects.create(username='Лев Толстой')
+        cls.author_client = Client()
+        cls.author_client.force_login(cls.author)
+        cls.not_author = User.objects.create(username='Горький')
+        cls.not_author_client = Client()
+        cls.not_author_client.force_login(cls.not_author)
         cls.note = Note.objects.create(
             title='Заголовок',
             text='Текст',
+            slug='note-slug',
             author=cls.author
         )
-        cls.author_client = Client()
-        cls.author_client.force_login(cls.author)
 
     def test_pages_availability(self):
-        """Тест доступности страниц для не аутентифицированного пользователя."""
+        """Тест доступности страниц для не
+        аутентифицированного пользователя.
+        """
         urls = (
             'notes:home',
             'users:login',
@@ -38,51 +43,44 @@ class TestRoutes(TestCase):
                     HTTPStatus.OK
                 )
 
-    def test_redirect_for_anonymous_client(self):
-        """Тест редиректа на страницу авторизации для
-        не аутентифицированного пользователя."""
-        login_url = reverse('users:login')
-        urls = (
-            ('notes:add', None),
-            ('notes:edit', (self.note.id,)),
-            ('notes:detail', (self.note.id,)),
-            ('notes:delete', (self.note.id,)),
-            ('notes:list', None),
-            ('notes:success', None),
-        )
-        for name, args in urls:
+    def test_pages_availability_for_auth_user(self):
+        """Тест доступности страниц для аутентифицированного пользователя."""
+        names = ('notes:list', 'notes:add', 'notes:success')
+        for name in names:
             with self.subTest(name=name):
+                response = self.not_author_client.get(reverse(name))
+                assert response.status_code == HTTPStatus.OK
+
+    def test_pages_availability_for_different_users(self):
+        """Тест доступности страниц для разных пользователей."""
+        client_expected_status = (
+            (self.not_author_client, HTTPStatus.NOT_FOUND),
+            (self.author_client, HTTPStatus.OK)
+        )
+        names = ('notes:detail', 'notes:edit', 'notes:delete')
+        for client, status in client_expected_status:
+            for name in names:
+                with self.subTest(
+                        client=client, name=name, status=status
+                ):
+                    response = client.get(reverse(
+                        name, args=(self.note.slug,)))
+                    self.assertEqual(response.status_code, status)
+
+    def test_redirects(self):
+        """Тест редиректа для не аутентифицированного клиента."""
+        name_args = (
+            ('notes:detail', (self.note.slug,)),
+            ('notes:edit', (self.note.slug,)),
+            ('notes:delete', (self.note.slug,)),
+            ('notes:add', None),
+            ('notes:success', None),
+            ('notes:list', None),
+        )
+        for name, args in name_args:
+            with self.subTest(name=name, args=args):
+                login_url = reverse('users:login')
                 url = reverse(name, args=args)
+                expected_url = f'{login_url}?next={url}'
                 response = self.client.get(url)
-                redirect_url = f'{login_url}?next={url}'
-                self.assertRedirects(
-                    response, redirect_url
-                )
-
-    def test_redirect_note_update(self):
-        """Тест редиректа после редактирования заметки."""
-        response = self.author_client.post(
-            reverse('notes:edit', args=(self.note.slug,)), {
-                'title': 'Test_edit_title',
-                'text': 'Test_edit_text',
-            }
-        )
-        self.assertRedirects(response, reverse('notes:success'))
-
-    def test_redirect_note_create(self):
-        """Тест редиректа после создания заметки."""
-        response = self.author_client.post(
-            reverse('notes:add'), {
-                'title': 'Test_new_title',
-                'text': 'Test_new_text'
-            }
-        )
-        self.assertRedirects(response, reverse('notes:success'))
-
-    def test_redirect_note_create(self):
-        """Тест редиректа после удаления заметки."""
-        response = self.author_client.delete(
-            reverse('notes:delete', args=(self.note.slug,))
-        )
-        self.assertRedirects(response, reverse('notes:success'))
-
+                self.assertRedirects(response, expected_url)
